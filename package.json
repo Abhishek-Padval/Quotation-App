@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=dist-server/server.js --format=esm --external:better-sqlite3 --external:express --external:vite --external:dotenv --external:@google/genai --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=dist-server/server.js --format=esm --external:@supabase/supabase-js --external:express --external:vite --external:dotenv --external:@google/genai --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "start": "NODE_ENV=production node dist-server/server.js",
     "godaddy-build": "node build-prod.js",
     "preview": "vite preview",
@@ -18,10 +18,10 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@supabase/supabase-js": "^2.101.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.4.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",

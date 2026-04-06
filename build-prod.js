@@ -19,7 +19,7 @@ async function prepareDeployment() {
     target: 'node18',
     outfile: 'dist-server/server.js',
     format: 'esm',
-    external: ['better-sqlite3', 'express', 'vite', 'dotenv', '@google/genai'],
+    external: ['@supabase/supabase-js', 'express', 'vite', 'dotenv', '@google/genai'],
     banner: {
       js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
     },
@@ -42,11 +42,11 @@ async function prepareDeployment() {
   fs.mkdirSync(path.join(deployDir, 'dist-server'));
   fs.copyFileSync('dist-server/server.js', path.join(deployDir, 'server.js'));
   
-  // Copy database and schema
-  if (fs.existsSync('quotations.db')) {
-    fs.copyFileSync('quotations.db', path.join(deployDir, 'quotations.db'));
+  // Copy Supabase config
+  if (!fs.existsSync(path.join(deployDir, 'src'))) {
+    fs.mkdirSync(path.join(deployDir, 'src'));
   }
-  fs.copyFileSync('src/db.ts', path.join(deployDir, 'src/db.ts'));
+  fs.copyFileSync('src/supabase.ts', path.join(deployDir, 'src/supabase.ts'));
   
   // Copy package.json
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
