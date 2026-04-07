@@ -58,7 +58,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, prompt }),
     });
-    if (!res.ok) throw new Error('AI generation failed');
+    if (!res.ok) throw new Error('Generation failed');
     const data = await res.json();
     return data.text;
   },

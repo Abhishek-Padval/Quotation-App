@@ -37,8 +37,32 @@ async function startServer() {
       );
       console.log("Demo user created: demo@example.com / demo");
     }
+
+    const companyProfile = db.prepare("SELECT * FROM company_profile WHERE id = 1").get();
+    if (!companyProfile) {
+      db.prepare(`
+        INSERT INTO company_profile (id, name, tagline, address, phone, mobile, email, gst_number, msme_reg, established_year, company_type, headquarters, authorized_partner_since, service_locations, authorized_signatory)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        "Quotation Pro",
+        "Professional Quotation Management",
+        "123 Business Avenue, Suite 100",
+        "+91 12345 67890",
+        "+91 98765 43210",
+        "contact@quotationpro.com",
+        "GSTIN1234567890",
+        "MSME123456",
+        "2024",
+        "Private Limited",
+        "Pune, Maharashtra",
+        "2024",
+        "All India",
+        "Authorized Signatory"
+      );
+      console.log("Initial company profile created.");
+    }
   } catch (err) {
-    console.error("Failed to initialize demo user:", err);
+    console.error("Failed to initialize data:", err);
   }
 
   const transporter = nodemailer.createTransport({

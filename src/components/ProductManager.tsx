@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Trash2, Package, Search, Upload, FileUp, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Package, Search, Upload, FileUp, Zap } from 'lucide-react';
 import { api } from '../services/api';
 import { Product } from '../types';
 import { formatCurrency } from '../lib/utils';
@@ -242,7 +242,7 @@ export default function ProductManager() {
           <div className="bg-white p-8 rounded-3xl shadow-2xl border border-indigo-100 flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             <div className="text-center">
-              <p className="font-bold text-indigo-600">AI is parsing PDF...</p>
+              <p className="font-bold text-indigo-600">Processing PDF...</p>
               <p className="text-xs text-slate-400">Extracting product data automatically</p>
             </div>
           </div>

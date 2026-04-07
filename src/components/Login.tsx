@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Lock, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, ShieldCheck, ArrowRight, Zap } from 'lucide-react';
 import { api } from '../services/api';
 import { User } from '../types';
 
@@ -242,7 +242,7 @@ export default function Login({ onLogin }: LoginProps) {
                   disabled={loading}
                   className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2"
                 >
-                  <Sparkles size={20} className="text-amber-400" />
+                  <Zap size={20} className="text-amber-400" />
                   Try Demo Account
                 </button>
               )}

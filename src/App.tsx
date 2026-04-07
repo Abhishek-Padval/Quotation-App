@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, FileText, Settings, LayoutDashboard, Trash2, Download, 
-  Send, CheckCircle, AlertCircle, Sparkles, ChevronRight, 
+  Send, CheckCircle, AlertCircle, Zap, ChevronRight, 
   Save, X, Printer, FileSpreadsheet, Mail, Calculator, Clock,
   Users, Package, ClipboardList, BarChart3, LogOut, Eye, Upload, Shield
 } from 'lucide-react';
@@ -406,7 +406,7 @@ export default function App() {
               {user.role === 'admin' && (
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Sparkles size={20} className="text-indigo-600" />
+                    <Zap size={20} className="text-indigo-600" />
                     Quick Actions
                   </h3>
                   <div className="flex flex-wrap gap-4">
@@ -635,8 +635,8 @@ export default function App() {
                             }}
                             className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
                           >
-                            <Sparkles size={14} />
-                            AI Generate
+                            <Zap size={14} />
+                            Auto Generate
                           </button>
                         </div>
                         <input 
@@ -1098,8 +1098,8 @@ export default function App() {
                         }}
                         className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
                       >
-                        <Sparkles size={14} />
-                        AI Refine
+                        <Zap size={14} />
+                        Smart Refine
                       </button>
                     </div>
                     <div className="space-y-3">
@@ -1142,7 +1142,7 @@ export default function App() {
                   </section>
                 </div>
 
-                {/* Right Column: Summary & AI */}
+                {/* Right Column: Summary & Smart Tools */}
                 <div className="space-y-8">
                   <section className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 sticky top-8">
                     <h3 className="text-lg font-bold">Quotation Summary</h3>
@@ -1207,7 +1207,7 @@ export default function App() {
                     </div>
 
                     <div className="pt-6 border-t border-slate-100 space-y-4">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">AI Assistant</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Smart Assistant</p>
                       <button 
                         onClick={async () => {
                           setAiLoading(true);
@@ -1218,7 +1218,7 @@ export default function App() {
                         }}
                         className="w-full flex items-center gap-3 p-3 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-semibold hover:bg-indigo-100 transition-colors"
                       >
-                        <Sparkles size={18} />
+                        <Zap size={18} />
                         Rewrite Introduction
                       </button>
                       <button 
@@ -1522,13 +1522,13 @@ export default function App() {
         </div>
       </main>
 
-      {/* AI Loading Overlay */}
+      {/* Loading Overlay */}
       {aiLoading && (
         <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl border border-indigo-100 flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             <div className="text-center">
-              <p className="font-bold text-indigo-600">AI is thinking...</p>
+              <p className="font-bold text-indigo-600">Processing...</p>
               <p className="text-xs text-slate-400">Crafting professional content for you</p>
             </div>
           </div>
