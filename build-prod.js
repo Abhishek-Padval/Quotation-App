@@ -17,9 +17,9 @@ async function prepareDeployment() {
     bundle: true,
     platform: 'node',
     target: 'node18',
-    outfile: 'dist-server/server.js',
+    outfile: 'server-prod.js',
     format: 'esm',
-    external: ['better-sqlite3', 'express', 'vite', 'dotenv', '@google/genai'],
+    external: ['express', 'vite', 'dotenv', '@google/genai'],
     banner: {
       js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
     },
@@ -39,8 +39,7 @@ async function prepareDeployment() {
   fs.cpSync('dist', path.join(deployDir, 'dist'), { recursive: true });
   
   // Copy transpiled server
-  fs.mkdirSync(path.join(deployDir, 'dist-server'));
-  fs.copyFileSync('dist-server/server.js', path.join(deployDir, 'server.js'));
+  fs.copyFileSync('server-prod.js', path.join(deployDir, 'server.js'));
   
   // Copy database and schema
   if (fs.existsSync('quotations.db')) {
