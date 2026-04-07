@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { supabase } from "./src/supabase.ts";
+import db from "./src/db.ts";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
@@ -31,39 +31,33 @@ async function startServer() {
   // --- API Routes ---
 
   // Company Profile
-  app.get("/api/company", async (req, res) => {
+  app.get("/api/company", (req, res) => {
     try {
-      const { data, error } = await supabase
-        .from("company_profile")
-        .select("*")
-        .eq("id", 1)
-        .single();
-      
-      if (error) throw error;
-      res.json(data || {});
+      const profile = db.prepare("SELECT * FROM company_profile WHERE id = 1").get();
+      res.json(profile || {});
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.put("/api/company", async (req, res) => {
+  app.put("/api/company", (req, res) => {
     try {
       const { 
         name, tagline, address, phone, mobile, email, gst_number, 
         msme_reg, established_year, company_type, headquarters, 
         authorized_partner_since, service_locations, authorized_signatory, logo_url 
       } = req.body;
-      
-      const { error } = await supabase
-        .from("company_profile")
-        .update({ 
-          name, tagline, address, phone, mobile, email, gst_number, 
-          msme_reg, established_year, company_type, headquarters, 
-          authorized_partner_since, service_locations, authorized_signatory, logo_url 
-        })
-        .eq("id", 1);
-
-      if (error) throw error;
+      db.prepare(`
+        UPDATE company_profile 
+        SET name = ?, tagline = ?, address = ?, phone = ?, mobile = ?, email = ?, gst_number = ?, 
+            msme_reg = ?, established_year = ?, company_type = ?, headquarters = ?, 
+            authorized_partner_since = ?, service_locations = ?, authorized_signatory = ?, logo_url = ?
+        WHERE id = 1
+      `).run(
+        name, tagline, address, phone, mobile, email, gst_number, 
+        msme_reg, established_year, company_type, headquarters, 
+        authorized_partner_since, service_locations, authorized_signatory, logo_url
+      );
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -71,46 +65,24 @@ async function startServer() {
   });
 
   // Quotations
-  app.get("/api/quotations", async (req, res) => {
+  app.get("/api/quotations", (req, res) => {
     try {
-      const { data, error } = await supabase
-        .from("quotations")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      res.json(data);
+      const quotations = db.prepare("SELECT * FROM quotations ORDER BY created_at DESC").all();
+      res.json(quotations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.get("/api/quotations/:id", async (req, res) => {
+  app.get("/api/quotations/:id", (req, res) => {
     try {
-      const { data: quotation, error: qError } = await supabase
-        .from("quotations")
-        .select("*")
-        .eq("id", req.params.id)
-        .single();
+      const quotation = db.prepare("SELECT * FROM quotations WHERE id = ?").get(req.params.id);
+      if (!quotation) return res.status(404).json({ error: "Not found" });
       
-      if (qError || !quotation) return res.status(404).json({ error: "Not found" });
+      const items = db.prepare("SELECT * FROM quotation_items WHERE quotation_id = ?").all(req.params.id);
+      const terms = db.prepare("SELECT term_text FROM quotation_terms WHERE quotation_id = ?").all(req.params.id);
       
-      const { data: items, error: iError } = await supabase
-        .from("quotation_items")
-        .select("*")
-        .eq("quotation_id", req.params.id);
-      
-      const { data: terms, error: tError } = await supabase
-        .from("quotation_terms")
-        .select("term_text")
-        .eq("quotation_id", req.params.id);
-      
-      if (iError || tError) throw iError || tError;
-      
-      // Supabase might return metadata as an object if it's JSONB, or a string if it's TEXT
-      const metadata = typeof quotation.metadata === 'string' 
-        ? JSON.parse(quotation.metadata || '{}') 
-        : (quotation.metadata || {});
+      const metadata = JSON.parse(quotation.metadata || '{}');
       
       res.json({ 
         ...quotation, 
@@ -123,7 +95,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/quotations", async (req, res) => {
+  app.post("/api/quotations", (req, res) => {
     const { 
       ref_number, client_name, client_address, kind_attention, subject, 
       intro_paragraph, date, validity_days, items, terms,
@@ -133,54 +105,54 @@ async function startServer() {
       delivery_timeline, warranty_period, understanding, technical_specs, amc_options
     } = req.body;
 
-    const metadata = {
+    const metadata = JSON.stringify({
       location, requirement_summary, proposed_solution, key_benefit, 
       delivery_timeline, warranty_period, understanding, technical_specs, amc_options
-    };
+    });
 
-    try {
-      // Create Quotation
-      const { data: qData, error: qError } = await supabase
-        .from("quotations")
-        .insert({
+    const transaction = db.transaction(() => {
+      const result = db.prepare(`
+        INSERT INTO quotations (
           ref_number, client_name, client_address, kind_attention, subject, 
           intro_paragraph, date, validity_days, total_basic, total_gst, grand_total, metadata
-        })
-        .select("id")
-        .single();
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        ref_number, client_name, client_address, kind_attention, subject, 
+        intro_paragraph, date, validity_days, total_basic, total_gst, grand_total, metadata
+      );
 
-      if (qError) throw qError;
-      const quotationId = qData.id;
+      const quotationId = result.lastInsertRowid;
 
-      // Create Items
-      const itemsToInsert = items.map((item: any) => ({
-        quotation_id: quotationId,
-        description: item.description,
-        basic_price: item.basic_price,
-        quantity: item.quantity,
-        gst_percent: item.gst_percent
-      }));
-      const { error: iError } = await supabase.from("quotation_items").insert(itemsToInsert);
-      if (iError) throw iError;
+      const insertItem = db.prepare(`
+        INSERT INTO quotation_items (quotation_id, description, basic_price, quantity, gst_percent)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      for (const item of items) {
+        insertItem.run(quotationId, item.description, item.basic_price, item.quantity, item.gst_percent);
+      }
 
-      // Create Terms
-      const termsToInsert = terms.map((term: string) => ({
-        quotation_id: quotationId,
-        term_text: term
-      }));
-      const { error: tError } = await supabase.from("quotation_terms").insert(termsToInsert);
-      if (tError) throw tError;
+      const insertTerm = db.prepare(`
+        INSERT INTO quotation_terms (quotation_id, term_text)
+        VALUES (?, ?)
+      `);
+      for (const term of terms) {
+        insertTerm.run(quotationId, term);
+      }
 
-      res.json({ id: quotationId });
+      return quotationId;
+    });
+
+    try {
+      const id = transaction();
+      res.json({ id });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   });
 
-  app.delete("/api/quotations/:id", async (req, res) => {
+  app.delete("/api/quotations/:id", (req, res) => {
     try {
-      const { error } = await supabase.from("quotations").delete().eq("id", req.params.id);
-      if (error) throw error;
+      db.prepare("DELETE FROM quotations WHERE id = ?").run(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -188,31 +160,17 @@ async function startServer() {
   });
 
   // Dashboard Stats
-  app.get("/api/stats", async (req, res) => {
+  app.get("/api/stats", (req, res) => {
     try {
-      const { data: total, error: tError } = await supabase
-        .from("quotations")
-        .select("id, grand_total");
-      
-      const { count: pendingCount, error: pError } = await supabase
-        .from("quotations")
-        .select("*", { count: 'exact', head: true })
-        .eq("status", "pending");
-      
-      const { count: expiredCount, error: eError } = await supabase
-        .from("quotations")
-        .select("*", { count: 'exact', head: true })
-        .eq("status", "expired");
-      
-      if (tError || pError || eError) throw tError || pError || eError;
-
-      const totalValue = total?.reduce((sum, q) => sum + (q.grand_total || 0), 0) || 0;
+      const total = db.prepare("SELECT COUNT(*) as count, SUM(grand_total) as totalValue FROM quotations").get();
+      const pending = db.prepare("SELECT COUNT(*) as count FROM quotations WHERE status = 'pending'").get();
+      const expired = db.prepare("SELECT COUNT(*) as count FROM quotations WHERE status = 'expired'").get();
       
       res.json({
-        totalQuotations: total?.length || 0,
-        totalValue,
-        pendingValidity: pendingCount || 0,
-        expiredQuotations: expiredCount || 0
+        totalQuotations: total.count || 0,
+        totalValue: total.totalValue || 0,
+        pendingValidity: pending.count || 0,
+        expiredQuotations: expired.count || 0
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -225,13 +183,8 @@ async function startServer() {
   app.post("/api/auth/send-otp", async (req, res) => {
     try {
       const { email, type = 'login' } = req.body;
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .single();
-      
-      if (error || !user) return res.status(404).json({ error: "User not found" });
+      const user = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+      if (!user) return res.status(404).json({ error: "User not found" });
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       otpStore.set(email, { otp, expires: Date.now() + 5 * 60 * 1000, type }); // 5 mins expiry
@@ -254,6 +207,7 @@ async function startServer() {
           });
         } catch (mailErr) {
           console.error('Mail sending failed:', mailErr);
+          // Still return success in debug mode if needed, but here we want it to be real
           return res.status(500).json({ error: "Failed to send email. Please check SMTP configuration." });
         }
       }
@@ -272,7 +226,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", (req, res) => {
     try {
       const { email, otp, newPassword } = req.body;
       const stored = otpStore.get(email);
@@ -282,12 +236,7 @@ async function startServer() {
       }
 
       otpStore.delete(email);
-      const { error } = await supabase
-        .from("users")
-        .update({ password: newPassword })
-        .eq("email", email);
-      
-      if (error) throw error;
+      db.prepare("UPDATE users SET password = ? WHERE email = ?").run(newPassword, email);
       
       res.json({ success: true, message: "Password updated successfully" });
     } catch (error: any) {
@@ -295,7 +244,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/auth/verify-otp", async (req, res) => {
+  app.post("/api/auth/verify-otp", (req, res) => {
     try {
       const { email, otp } = req.body;
       const stored = otpStore.get(email);
@@ -305,13 +254,7 @@ async function startServer() {
       }
 
       otpStore.delete(email);
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("id, email, first_name, last_name, mobile, role, is_verified, permissions")
-        .eq("email", email)
-        .single();
-      
-      if (error || !user) throw error || new Error("User not found");
+      const user = db.prepare("SELECT id, email, first_name, last_name, mobile, role, is_verified, permissions FROM users WHERE email = ?").get(email);
       
       if (typeof user.permissions === 'string') {
         user.permissions = JSON.parse(user.permissions);
@@ -323,17 +266,11 @@ async function startServer() {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", (req, res) => {
     try {
       const { email, password } = req.body;
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .eq("password", password)
-        .single();
-      
-      if (error || !user) return res.status(401).json({ error: "Invalid credentials" });
+      const user = db.prepare("SELECT id, email, first_name, last_name, mobile, role, is_verified, permissions FROM users WHERE email = ? AND password = ?").get(email, password);
+      if (!user) return res.status(401).json({ error: "Invalid credentials" });
       
       // Password correct, now require OTP
       res.json({ success: true, requiresOtp: true });
@@ -343,85 +280,63 @@ async function startServer() {
   });
 
   // --- User Management Routes ---
-  app.get("/api/users", async (req, res) => {
+  app.get("/api/users", (req, res) => {
     try {
-      const { data: users, error } = await supabase
-        .from("users")
-        .select("id, email, first_name, last_name, mobile, role, is_verified, permissions");
-      
-      if (error) throw error;
+      const users = db.prepare("SELECT id, email, first_name, last_name, mobile, role, is_verified, permissions FROM users").all();
       res.json(users.map((u: any) => ({
         ...u,
-        permissions: typeof u.permissions === 'string' ? JSON.parse(u.permissions || '[]') : (u.permissions || [])
+        permissions: JSON.parse(u.permissions || '[]')
       })));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", (req, res) => {
     try {
       const { email, password, first_name, last_name, mobile, role, permissions } = req.body;
-      const { data, error } = await supabase
-        .from("users")
-        .insert({ 
-          email, password, first_name, last_name, mobile, role, 
-          permissions: permissions || [], 
-          is_verified: true 
-        })
-        .select("id")
-        .single();
-      
-      if (error) throw error;
-      res.json({ success: true, id: data.id });
+      const result = db.prepare(`
+        INSERT INTO users (email, password, first_name, last_name, mobile, role, permissions, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(email, password, first_name, last_name, mobile, role, JSON.stringify(permissions || []));
+      res.json({ success: true, id: result.lastInsertRowid });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.put("/api/users/:id", async (req, res) => {
+  app.put("/api/users/:id", (req, res) => {
     try {
       const { role, permissions, first_name, last_name, mobile } = req.body;
-      const { error } = await supabase
-        .from("users")
-        .update({ role, permissions, first_name, last_name, mobile })
-        .eq("id", req.params.id);
-      
-      if (error) throw error;
+      db.prepare("UPDATE users SET role = ?, permissions = ?, first_name = ?, last_name = ?, mobile = ? WHERE id = ?")
+        .run(role, JSON.stringify(permissions), first_name, last_name, mobile, req.params.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", (req, res) => {
     try {
-      const id = req.params.id;
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
 
       // Prevent deleting the last admin
-      const { data: user, error: uError } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", id)
-        .single();
-      
-      if (uError || !user) return res.status(404).json({ error: "User not found" });
+      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
       if (user.role === 'admin') {
-        const { count, error: cError } = await supabase
-          .from("users")
-          .select("*", { count: 'exact', head: true })
-          .eq("role", "admin");
-        
-        if (cError) throw cError;
-        if (count && count <= 1) {
+        const adminCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get().count;
+        if (adminCount <= 1) {
           return res.status(400).json({ error: "Cannot delete the last administrator" });
         }
       }
       
-      const { error: dError } = await supabase.from("users").delete().eq("id", id);
-      if (dError) throw dError;
-      
+      db.prepare("DELETE FROM users WHERE id = ?").run(id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -429,34 +344,28 @@ async function startServer() {
   });
 
   // --- Product Routes ---
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", (req, res) => {
     try {
-      const { data: products, error } = await supabase.from("products").select("*");
-      if (error) throw error;
+      const products = db.prepare("SELECT * FROM products").all();
       res.json(products);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/products", async (req, res) => {
+  app.post("/api/products", (req, res) => {
     try {
       const { name, description, base_price, category, version_model, key_features } = req.body;
-      const { error } = await supabase
-        .from("products")
-        .insert({ name, description, base_price, category, version_model, key_features });
-      
-      if (error) throw error;
+      db.prepare("INSERT INTO products (name, description, base_price, category, version_model, key_features) VALUES (?, ?, ?, ?, ?, ?)").run(name, description, base_price, category, version_model, key_features);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.delete("/api/products/:id", async (req, res) => {
+  app.delete("/api/products/:id", (req, res) => {
     try {
-      const { error } = await supabase.from("products").delete().eq("id", req.params.id);
-      if (error) throw error;
+      db.prepare("DELETE FROM products WHERE id = ?").run(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -464,36 +373,31 @@ async function startServer() {
   });
 
   // --- Customer Routes ---
-  app.get("/api/customers", async (req, res) => {
+  app.get("/api/customers", (req, res) => {
     try {
-      const { data: customers, error } = await supabase.from("customers").select("*");
-      if (error) throw error;
+      const customers = db.prepare("SELECT * FROM customers").all();
       res.json(customers);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", (req, res) => {
     try {
       const { name, address, billing_address, shipping_address, gst_number, contact_person, phone, email } = req.body;
-      const { data, error } = await supabase
-        .from("customers")
-        .insert({ name, address, billing_address, shipping_address, gst_number, contact_person, phone, email })
-        .select("id")
-        .single();
-      
-      if (error) throw error;
-      res.json({ success: true, id: data.id });
+      const result = db.prepare(`
+        INSERT INTO customers (name, address, billing_address, shipping_address, gst_number, contact_person, phone, email)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(name, address, billing_address, shipping_address, gst_number, contact_person, phone, email);
+      res.json({ success: true, id: result.lastInsertRowid });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.delete("/api/customers/:id", async (req, res) => {
+  app.delete("/api/customers/:id", (req, res) => {
     try {
-      const { error } = await supabase.from("customers").delete().eq("id", req.params.id);
-      if (error) throw error;
+      db.prepare("DELETE FROM customers WHERE id = ?").run(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -501,45 +405,32 @@ async function startServer() {
   });
 
   // --- OEF Routes ---
-  app.get("/api/oefs", async (req, res) => {
+  app.get("/api/oefs", (req, res) => {
     try {
-      const { data: oefs, error } = await supabase
-        .from("oefs")
-        .select(`
-          *,
-          customers (
-            name,
-            address,
-            contact_person
-          )
-        `);
-      
-      if (error) throw error;
-      
+      const oefs = db.prepare(`
+        SELECT o.*, c.name as customer_name, c.address as customer_address, c.contact_person 
+        FROM oefs o
+        LEFT JOIN customers c ON o.customer_id = c.id
+      `).all();
       res.json(oefs.map((o: any) => ({
         ...o,
-        customer_name: o.customers?.name,
-        customer_address: o.customers?.address,
-        contact_person: o.customers?.contact_person,
-        items: typeof o.items === 'string' ? JSON.parse(o.items || '[]') : (o.items || [])
+        items: JSON.parse(o.items || '[]')
       })));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/oefs", async (req, res) => {
+  app.post("/api/oefs", (req, res) => {
     try {
       const { oef_no, date, marketing_executive, contact, email, customer_id, items, total_amount } = req.body;
-      const { error } = await supabase
-        .from("oefs")
-        .insert({
-          oef_no, date, marketing_executive, contact, email, customer_id, 
-          items: items || [], 
-          total_amount
-        });
-      
-      if (error) throw error;
+      db.prepare(`
+        INSERT INTO oefs (oef_no, date, marketing_executive, contact, email, customer_id, items, total_amount)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        oef_no, date, marketing_executive, contact, email, customer_id, 
+        JSON.stringify(items || []), total_amount
+      );
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
