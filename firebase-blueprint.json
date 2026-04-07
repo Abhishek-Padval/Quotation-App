@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "CompanyProfile": {
+      "title": "Company Profile",
+      "description": "Company information for quotation headers",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "mobile": { "type": "string" },
+        "email": { "type": "string" },
+        "gst_number": { "type": "string" },
+        "msme_reg": { "type": "string" },
+        "established_year": { "type": "string" },
+        "company_type": { "type": "string" },
+        "headquarters": { "type": "string" },
+        "authorized_partner_since": { "type": "string" },
+        "service_locations": { "type": "string" },
+        "authorized_signatory": { "type": "string" },
+        "logo_url": { "type": "string" }
+      }
+    },
+    "Quotation": {
+      "title": "Quotation",
+      "description": "Business quotation document",
+      "type": "object",
+      "properties": {
+        "ref_number": { "type": "string" },
+        "client_name": { "type": "string" },
+        "client_address": { "type": "string" },
+        "kind_attention": { "type": "string" },
+        "subject": { "type": "string" },
+        "intro_paragraph": { "type": "string" },
+        "date": { "type": "string" },
+        "validity_days": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "sent", "accepted", "rejected", "expired"] },
+        "total_basic": { "type": "number" },
+        "total_gst": { "type": "number" },
+        "grand_total": { "type": "number" },
+        "items": { "type": "array" },
+        "terms": { "type": "array" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "Application user profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "password": { "type": "string" },
+        "first_name": { "type": "string" },
+        "last_name": { "type": "string" },
+        "mobile": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "data_entry", "oef_manager", "viewer", "user"] },
+        "permissions": { "type": "array" },
+        "is_verified": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product catalog item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "base_price": { "type": "number" },
+        "category": { "type": "string" },
+        "version_model": { "type": "string" },
+        "key_features": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer contact information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "billing_address": { "type": "string" },
+        "shipping_address": { "type": "string" },
+        "gst_number": { "type": "string" },
+        "contact_person": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "OEF": {
+      "title": "Order Execution Form",
+      "description": "Internal order execution document",
+      "type": "object",
+      "properties": {
+        "oef_no": { "type": "string" },
+        "date": { "type": "string" },
+        "marketing_executive": { "type": "string" },
+        "contact": { "type": "string" },
+        "email": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "items": { "type": "array" },
+        "total_amount": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/company_profile/1": {
+      "schema": "CompanyProfile",
+      "description": "Single document for company profile"
+    },
+    "/quotations/{quotationId}": {
+      "schema": "Quotation",
+      "description": "Collection of quotations"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of users"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Collection of customers"
+    },
+    "/oefs/{oefId}": {
+      "schema": "OEF",
+      "description": "Collection of order execution forms"
+    }
+  }
+}

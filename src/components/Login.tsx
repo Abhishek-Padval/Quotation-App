@@ -14,19 +14,16 @@ export default function Login({ onLogin }: LoginProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [mobile, setMobile] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [isSignup, setIsSignup] = useState(false);
-  const [step, setStep] = useState<'credentials' | 'otp' | 'forgot-password' | 'reset-otp'>('credentials');
-  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<'credentials' | 'forgot-password'>('credentials');
   const [loading, setLoading] = useState(false);
-  const [debugOtp, setDebugOtp] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (isSignup) {
-        await api.createUser({ 
+        const { id } = await api.createUser({ 
           email, 
           password, 
           first_name: firstName, 
@@ -35,16 +32,13 @@ export default function Login({ onLogin }: LoginProps) {
           role: 'user', 
           permissions: ['dashboard', 'quotations'] 
         });
-        alert('Account created! Please sign in.');
-        setIsSignup(false);
+        alert('Account created! Logging you in...');
+        const data = await api.login(email, password);
+        onLogin(data.user!);
       } else {
         const data = await api.login(email, password);
-        if (data.requiresOtp) {
-          const otpData = await api.sendOtp(email, 'login');
-          if (otpData.debugOtp) {
-            setDebugOtp(otpData.debugOtp);
-          }
-          setStep('otp');
+        if (data.user) {
+          onLogin(data.user);
         }
       }
     } catch (err: any) {
@@ -58,58 +52,13 @@ export default function Login({ onLogin }: LoginProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      const otpData = await api.sendOtp(email, 'reset');
-      if (otpData.debugOtp) {
-        setDebugOtp(otpData.debugOtp);
-      }
-      setStep('reset-otp');
-    } catch (err: any) {
-      alert(err.message || 'Failed to send reset code');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await api.resetPassword({ email, otp, newPassword });
-      alert('Password reset successful! Please login with your new password.');
+      await api.sendPasswordReset(email);
+      alert('Password reset email sent! Please check your inbox.');
       setStep('credentials');
-      setPassword('');
-      setOtp('');
-      setDebugOtp(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to reset password');
+      alert(err.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { user } = await api.verifyOtp(email, otp);
-      onLogin(user);
-    } catch (err) {
-      alert('Invalid or expired OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    try {
-      const type = step === 'reset-otp' ? 'reset' : 'login';
-      const otpData = await api.sendOtp(email, type);
-      if (otpData.debugOtp) {
-        setDebugOtp(otpData.debugOtp);
-      }
-      alert('New OTP sent!');
-    } catch (err) {
-      alert('Failed to resend OTP');
     }
   };
 
@@ -229,12 +178,12 @@ export default function Login({ onLogin }: LoginProps) {
                   onClick={async () => {
                     setLoading(true);
                     try {
-                      const data = await api.login('demo@example.com', 'demo');
+                      const data = await api.login('demo@example.com', 'demo123');
                       if (data.user) {
                         onLogin(data.user);
                       }
                     } catch (err: any) {
-                      alert('Demo login failed');
+                      alert('Demo login failed. Please ensure the demo account is created in Firebase.');
                     } finally {
                       setLoading(false);
                     }
@@ -257,11 +206,11 @@ export default function Login({ onLogin }: LoginProps) {
                 </button>
               </div>
             </form>
-          ) : step === 'forgot-password' ? (
+          ) : (
             <form onSubmit={handleForgotPassword} className="space-y-6">
               <div className="space-y-2">
                 <h3 className="text-lg font-bold">Forgot Password</h3>
-                <p className="text-sm text-slate-500">Enter your email to receive a reset code.</p>
+                <p className="text-sm text-slate-500">Enter your email to receive a reset link.</p>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
@@ -282,123 +231,9 @@ export default function Login({ onLogin }: LoginProps) {
                 disabled={loading}
                 className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
               >
-                {loading ? 'Sending...' : 'Send Reset Code'}
+                {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
               <div className="text-center">
-                <button 
-                  type="button"
-                  onClick={() => setStep('credentials')}
-                  className="text-sm text-slate-400 hover:text-slate-600"
-                >
-                  Back to Login
-                </button>
-              </div>
-            </form>
-          ) : step === 'reset-otp' ? (
-            <form onSubmit={handleResetPassword} className="space-y-6">
-              <div className="space-y-2 text-center">
-                <h3 className="text-lg font-bold">Reset Password</h3>
-                <p className="text-sm text-slate-500">Enter the code sent to {email} and your new password.</p>
-                {debugOtp && (
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-center">
-                    <p className="text-[10px] uppercase font-bold tracking-widest mb-1">Your Reset Code (Debug Mode)</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest">{debugOtp}</p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Reset Code</label>
-                  <input 
-                    type="text" 
-                    maxLength={6}
-                    required
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                    placeholder="000000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">New Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                    <input 
-                      type="password" 
-                      required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
-              >
-                {loading ? 'Updating...' : 'Reset Password'}
-              </button>
-
-              <div className="flex flex-col gap-2 text-center">
-                <button 
-                  type="button"
-                  onClick={handleResendOtp}
-                  className="text-sm text-indigo-600 font-semibold hover:underline"
-                >
-                  Didn't receive code? Resend
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setStep('credentials')}
-                  className="text-sm text-slate-400 hover:text-slate-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-6 text-center">
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold">Verify OTP</h3>
-                <p className="text-sm text-slate-500">We've sent a code to {email}</p>
-                {debugOtp && (
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-center">
-                    <p className="text-[10px] uppercase font-bold tracking-widest mb-1">Your Login Code (Debug Mode)</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest">{debugOtp}</p>
-                  </div>
-                )}
-              </div>
-              
-              <input 
-                type="text" 
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full text-center text-3xl tracking-[0.5em] font-mono py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                placeholder="000000"
-              />
-
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
-              >
-                {loading ? 'Verifying...' : 'Verify & Access'}
-              </button>
-
-              <div className="flex flex-col gap-2">
-                <button 
-                  type="button"
-                  onClick={handleResendOtp}
-                  className="text-sm text-indigo-600 font-semibold hover:underline"
-                >
-                  Didn't receive code? Resend
-                </button>
                 <button 
                   type="button"
                   onClick={() => setStep('credentials')}

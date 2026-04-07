@@ -28,7 +28,7 @@ interface SettingsProps {
 export default function Settings({ currentUser }: SettingsProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<number | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({
     email: '',
@@ -68,7 +68,7 @@ export default function Settings({ currentUser }: SettingsProps) {
     }
   };
 
-  const handlePermissionToggle = (userId: number, moduleId: string) => {
+  const handlePermissionToggle = (userId: string, moduleId: string) => {
     setUsers(prev => prev.map(user => {
       if (user.id !== userId) return user;
       const currentPermissions = user.permissions || [];
@@ -89,7 +89,7 @@ export default function Settings({ currentUser }: SettingsProps) {
     });
   };
 
-  const handleRoleChange = (userId: number, role: UserRole) => {
+  const handleRoleChange = (userId: string, role: UserRole) => {
     setUsers(prev => prev.map(user => {
       if (user.id !== userId) return user;
       return { ...user, role };
@@ -111,7 +111,7 @@ export default function Settings({ currentUser }: SettingsProps) {
     }
   };
 
-  const deleteUser = async (id: number) => {
+  const deleteUser = async (id: string) => {
     if (!id) return;
     
     if (currentUser && id === currentUser.id) {

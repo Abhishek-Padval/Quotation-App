@@ -435,7 +435,7 @@ export default function OEFManager() {
                       <select 
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
                         value={editingOEF.customer_id || ''}
-                        onChange={(e) => setEditingOEF({ ...editingOEF, customer_id: Number(e.target.value) })}
+                        onChange={(e) => setEditingOEF({ ...editingOEF, customer_id: e.target.value })}
                       >
                         <option value="">Select a customer...</option>
                         {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

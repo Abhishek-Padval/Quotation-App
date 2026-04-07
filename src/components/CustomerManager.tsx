@@ -33,7 +33,7 @@ export default function CustomerManager() {
     fetchCustomers();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Delete this customer?')) {
       await api.deleteCustomer(id);
       fetchCustomers();

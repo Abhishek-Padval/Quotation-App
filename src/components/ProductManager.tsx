@@ -42,7 +42,7 @@ export default function ProductManager() {
     fetchProducts();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Delete this product?')) {
       await api.deleteProduct(id);
       fetchProducts();

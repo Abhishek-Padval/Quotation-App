@@ -1,5 +1,5 @@
 export interface CompanyProfile {
-  id: number;
+  id: string;
   name: string;
   tagline?: string;
   address: string;
@@ -18,7 +18,7 @@ export interface CompanyProfile {
 }
 
 export interface QuotationItem {
-  id?: number;
+  id?: string;
   description: string;
   basic_price: number;
   quantity: number;
@@ -56,7 +56,7 @@ export interface TechnicalSpecs {
 }
 
 export interface Quotation {
-  id?: number;
+  id?: string;
   ref_number: string;
   client_name: string;
   client_address: string;
@@ -116,7 +116,7 @@ export interface DashboardStats {
 export type UserRole = 'admin' | 'data_entry' | 'oef_manager' | 'viewer' | 'user';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   first_name?: string;
   last_name?: string;
@@ -127,7 +127,7 @@ export interface User {
 }
 
 export interface Product {
-  id?: number;
+  id?: string;
   name: string;
   description: string;
   base_price?: number;
@@ -137,7 +137,7 @@ export interface Product {
 }
 
 export interface Customer {
-  id?: number;
+  id?: string;
   name: string;
   address: string;
   billing_address?: string;
@@ -159,13 +159,13 @@ export interface OEFItem {
 }
 
 export interface OEF {
-  id?: number;
+  id?: string;
   oef_no: string;
   date: string;
   marketing_executive: string;
   contact: string;
   email: string;
-  customer_id: number;
+  customer_id: string;
   customer_name?: string;
   customer_address?: string;
   contact_person?: string;

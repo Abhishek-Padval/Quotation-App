@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: company_profile
+    // Document ID: 1
+    // Fields: name, tagline, address, phone, mobile, email, gst_number, msme_reg, 
+    //         established_year, company_type, headquarters, authorized_partner_since, 
+    //         service_locations, authorized_signatory, logo_url
+    //
+    // Collection: quotations
+    // Document ID: {quotationId}
+    // Fields: ref_number, client_name, client_address, kind_attention, subject, 
+    //         intro_paragraph, date, validity_days, status, total_basic, total_gst, 
+    //         grand_total, items, terms, created_at
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields: email, password, first_name, last_name, mobile, role, permissions, 
+    //         is_verified, created_at
+    //
+    // Collection: products
+    // Document ID: {productId}
+    // Fields: name, description, base_price, category, version_model, key_features, created_at
+    //
+    // Collection: customers
+    // Document ID: {customerId}
+    // Fields: name, address, billing_address, shipping_address, gst_number, 
+    //         contact_person, phone, email, created_at
+    //
+    // Collection: oefs
+    // Document ID: {oefId}
+    // Fields: oef_no, date, marketing_executive, contact, email, customer_id, 
+    //         items, total_amount, created_at
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "apadwal024@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return data.email is string && 
+             data.role in ['admin', 'data_entry', 'oef_manager', 'viewer', 'user'];
+    }
+
+    function isValidQuotation(data) {
+      return data.client_name is string && data.client_name.size() > 0 &&
+             data.grand_total is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /company_profile/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /quotations/{quotationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidQuotation(request.resource.data);
+      allow update: if isAuthenticated() && isValidQuotation(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'data_entry');
+    }
+
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /oefs/{oefId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'oef_manager');
+    }
+  }
+}

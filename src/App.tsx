@@ -6,6 +6,9 @@ import {
   Save, X, Printer, FileSpreadsheet, Mail, Calculator, Clock,
   Users, Package, ClipboardList, BarChart3, LogOut, Eye, Upload, Shield
 } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { api } from './services/api';
 import { Quotation, QuotationItem, CompanyProfile, DashboardStats, User, Product, Customer } from './types';
 import { cn, formatCurrency } from './lib/utils';
@@ -33,6 +36,7 @@ const DEFAULT_TERMS = [
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'editor' | 'settings' | 'products' | 'customers' | 'oef' | 'reports'>('dashboard');
   const [settingsTab, setSettingsTab] = useState<'company' | 'users'>('company');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -52,6 +56,30 @@ export default function App() {
   };
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const uSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (uSnap.exists()) {
+            setUser({ id: firebaseUser.uid, ...uSnap.data() } as any);
+          } else {
+            // Handle case where auth user exists but profile doesn't (shouldn't happen with our flow)
+            await api.logout();
+            setUser(null);
+          }
+        } catch (err) {
+          console.error("Error fetching user profile:", err);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (user) {
       fetchData();
       // Ensure user is on an allowed tab
@@ -66,16 +94,44 @@ export default function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [qData, sData, cData, pData, custData] = await Promise.all([
+      // Check if company profile exists, if not seed it (only for admins)
+      let cData;
+      try {
+        cData = await api.getCompany();
+      } catch (err) {
+        if (user?.role === 'admin') {
+          console.log("Seeding initial company profile...");
+          const initialProfile: CompanyProfile = {
+            id: '1',
+            name: "Quotation Pro",
+            tagline: "Professional Quotation Management",
+            address: "123 Business Avenue, Suite 100",
+            phone: "+91 12345 67890",
+            mobile: "+91 98765 43210",
+            email: "contact@quotationpro.com",
+            gst_number: "GSTIN1234567890",
+            msme_reg: "MSME123456",
+            established_year: "2024",
+            company_type: "Private Limited",
+            headquarters: "Pune, Maharashtra",
+            authorized_partner_since: "2024",
+            service_locations: "All India",
+            authorized_signatory: "Authorized Signatory"
+          };
+          await api.updateCompany(initialProfile);
+          cData = initialProfile;
+        }
+      }
+
+      const [qData, sData, pData, custData] = await Promise.all([
         api.getQuotations(),
         api.getStats(),
-        api.getCompany(),
         api.getProducts(),
         api.getCustomers()
       ]);
       setQuotations(qData);
       setStats(sData);
-      setCompany(cData);
+      if (cData) setCompany(cData);
       setProducts(pData);
       setCustomers(custData);
     } catch (err) {
@@ -84,6 +140,14 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) {
     return <Login onLogin={setUser} />;
@@ -197,7 +261,7 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this quotation?')) {
       await api.deleteQuotation(id);
       fetchData();
