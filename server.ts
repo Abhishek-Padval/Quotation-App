@@ -18,6 +18,29 @@ async function startServer() {
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
+  // Initialize Demo User
+  try {
+    const demoUser = db.prepare("SELECT * FROM users WHERE email = ?").get("demo@example.com");
+    if (!demoUser) {
+      db.prepare(`
+        INSERT INTO users (email, password, first_name, last_name, mobile, role, permissions, is_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        "demo@example.com", 
+        "demo", 
+        "Demo", 
+        "User", 
+        "+91 98765 43210", 
+        "admin", 
+        JSON.stringify(["dashboard", "quotations", "products", "customers", "oef", "reports", "settings"]),
+        1
+      );
+      console.log("Demo user created: demo@example.com / demo");
+    }
+  } catch (err) {
+    console.error("Failed to initialize demo user:", err);
+  }
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT) || 587,
@@ -272,6 +295,14 @@ async function startServer() {
       const user = db.prepare("SELECT id, email, first_name, last_name, mobile, role, is_verified, permissions FROM users WHERE email = ? AND password = ?").get(email, password);
       if (!user) return res.status(401).json({ error: "Invalid credentials" });
       
+      // Demo account bypasses OTP
+      if (email === "demo@example.com" && password === "demo") {
+        if (user.permissions) {
+          user.permissions = JSON.parse(user.permissions);
+        }
+        return res.json({ user, token: "demo-token" });
+      }
+
       // Password correct, now require OTP
       res.json({ success: true, requiresOtp: true });
     } catch (error: any) {

@@ -223,6 +223,30 @@ export default function Login({ onLogin }: LoginProps) {
                 <ArrowRight size={20} />
               </button>
 
+              {!isSignup && (
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const data = await api.login('demo@example.com', 'demo');
+                      if (data.user) {
+                        onLogin(data.user);
+                      }
+                    } catch (err: any) {
+                      alert('Demo login failed');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2"
+                >
+                  <Sparkles size={20} className="text-amber-400" />
+                  Try Demo Account
+                </button>
+              )}
+
               <div className="text-center">
                 <button 
                   type="button"

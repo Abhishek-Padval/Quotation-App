@@ -135,7 +135,7 @@ export const api = {
     return res.json();
   },
 
-  async login(email: string, password: string): Promise<{ success: boolean, requiresOtp?: boolean }> {
+  async login(email: string, password: string): Promise<{ success: boolean, requiresOtp?: boolean, user?: User, token?: string }> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
